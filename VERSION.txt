@@ -1,0 +1,4 @@
+BANQO PERÚ Supabase v1.2
+- Restaura interfaz visual v0.3
+- Mantiene backend Supabase y Admin avanzado
+- Corrige navegación Admin y evita pantalla blanca silenciosa

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="BANQO Perú — banqueo, simulacros y progreso para Residentado Médico, ENAM y EsSalud." />
+  <title>BANQO Perú</title>
+  <link rel="stylesheet" href="assets/styles.css" />
+</head>
+<body>
+  <div id="toast" class="toast"></div>
+  <header id="topbar" class="topbar hide">
+    <button class="brand" data-go="home" aria-label="Ir al inicio">
+      <span class="brand-mark">B</span><span class="brand-text">BANQO</span>
+    </button>
+    <nav class="topnav">
+      <button data-go="home">Inicio</button>
+      <button data-go="practice">Banquear</button>
+      <button data-go="simulations">Simulacros</button>
+      <button data-go="errors">Mis errores</button>
+      <button data-go="stats">Progreso</button>
+      <button id="adminNav" class="hide" data-go="admin">Admin</button>
+    </nav>
+    <div class="top-actions">
+      <div class="streak">🔥 <strong id="streakCount">0</strong></div>
+      <button id="themeBtn" class="icon-btn" title="Cambiar tema">◐</button>
+      <button id="avatarBtn" class="avatar" title="Cuenta">--</button>
+    </div>
+  </header>
+
+  <main id="app"></main>
+
+  <footer id="footer" class="footer hide">
+    <span>BANQO · Supabase v1.2</span>
+    <span>Residentado Médico Perú · ENAM · EsSalud</span>
+  </footer>
+
+  <div id="modalRoot"></div>
+
+  <script>
+    window.addEventListener('error', function(e){
+      var app=document.getElementById('app');
+      if(app && !app.innerHTML.trim()){
+        app.innerHTML='<section class="auth-shell"><div class="card auth-card"><div class="auth-logo"><span class="brand-mark">B</span><div><div class="kicker">BANQO PERÚ</div><h2>Error al cargar</h2></div></div><p class="danger-text">'+String(e.message||'No se pudo cargar la aplicación')+'</p><p class="muted small">Haz Ctrl + F5. Si persiste, envía este mensaje de error.</p></div></section>';
+      }
+    });
+  </script>
+  <script type="module" src="assets/app.js?v=1.2"></script>
+</body>
+</html>
