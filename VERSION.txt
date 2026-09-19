@@ -1,3 +1,0 @@
-BANQO Perú · Supabase v1.0
-Construido para GitHub Pages + Supabase.
-Incluye ejemplos integrados: Bioética 1 (39) y Simulacro 1 (200).
