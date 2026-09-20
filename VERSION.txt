@@ -1,0 +1,2 @@
+BANQO Perú · Supabase v1.3
+Importador PDF mejorado + claves separadas + OCR fallback + eliminar todas las preguntas
