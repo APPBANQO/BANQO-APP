@@ -1,21 +1,25 @@
-# BANQO Perú — inicio rápido con Supabase + GitHub Pages
+# BANQO Perú v1.6 — inicio rápido
 
-## 1. Crear Supabase
+## 1. Base de datos Supabase
 
-1. Crea un proyecto en Supabase.
-2. Abre **SQL Editor**.
-3. Copia y ejecuta todo `supabase/schema.sql` una sola vez.
+### Si es una instalación nueva
+Ejecuta una sola vez `supabase/schema.sql`.
 
-## 2. Crear tu cuenta admin
+### Si ya usabas BANQO Supabase v1.4 o v1.5
+Haz una copia de seguridad y ejecuta una sola vez `supabase/v1_6_audit_fix.sql` en Supabase → SQL Editor. No borra preguntas, usuarios ni progreso.
 
-1. Publica o abre BANQO y regístrate con tu correo.
-2. En Supabase → SQL Editor ejecuta:
+### Si aún estabas en v1.3
+Ejecuta primero `supabase/v1_4_upgrade.sql` y después `supabase/v1_6_audit_fix.sql`.
+
+## 2. Usuario administrador
+
+Crea tu cuenta normalmente. Después, en Supabase → SQL Editor:
 
 ```sql
 select id, email from auth.users;
 ```
 
-3. Copia tu UUID y ejecuta:
+Copia tu UUID y ejecuta:
 
 ```sql
 update public.profiles
@@ -23,51 +27,51 @@ set role = 'admin', plan = 'admin'
 where id = 'TU-UUID';
 ```
 
-4. Cierra sesión y vuelve a entrar.
+Cierra sesión y vuelve a entrar.
 
 ## 3. Conectar el frontend
 
-En **Project Settings / API** de Supabase copia:
+En Supabase copia el Project URL y la anon/publishable key. Puedes pegarlas en la pantalla inicial de BANQO o fijarlas en `assets/config.js`.
 
-- Project URL
-- anon/publishable key
+Nunca pongas la `service_role` key en el navegador.
 
-Puedes pegarlas en la primera pantalla de BANQO o fijarlas en `assets/config.js`.
+## 4. Explicación + Dato clave: GRATIS y local
 
-**No uses service_role en el navegador.**
+Esta versión NO requiere OpenAI, API key, Supabase Edge Functions ni pagos.
 
-## 4. Probar el importador
+Al importar una pregunta con clave detectada, BANQO crea localmente una explicación de apoyo y un Dato clave a partir de:
 
-Entra como admin → **Admin → Importar**.
+- respuesta oficial detectada;
+- texto de la alternativa correcta;
+- datos orientadores extraídos del enunciado;
+- tipo de pregunta (diagnóstico, tratamiento, prueba, mecanismo, etc.).
 
-Ya hay dos ejemplos:
+La clave oficial nunca se modifica. Las explicaciones locales se guardan como `AUTO_LOCAL` y no se muestran al alumno hasta que un revisor las valide y guarde como `MANUAL`.
 
-- **Bioética 1**: 39 preguntas.
-- **Simulacro 1**: 200 preguntas.
+Flujo:
 
-También puedes subir directamente XLSX/CSV/JSON o un PDF de solucionario con la alternativa correcta resaltada en verde.
+`archivo → OCR/texto → alternativas → detección verde → clave oficial → explicación local → dato clave → revisión → PENDIENTE`
 
-Todo entra como `PENDIENTE`.
+## 5. Importar bancos o simulacros
 
-## 5. Publicar contenido
+Admin → Importar.
 
-Admin → Preguntas → Editar:
+El importador admite XLSX, CSV, JSON y PDF. En PDF reconoce una o dos columnas, texto extraíble u OCR de respaldo y alternativas correctas con fondo, resaltado, subrayado o texto verde.
 
-1. revisa enunciado y alternativas;
-2. revisa clave;
-3. completa especialidad → tema → subtema;
-4. añade imagen si corresponde;
-5. añade explicación si deseas;
-6. pulsa **Publicar**.
+Deja activada la opción **Generar automáticamente Explicación + Dato clave de forma local y gratuita**.
 
-Para un simulacro, luego entra a **Admin → Simulacros** y cambia el simulacro de `BORRADOR` a `PUBLICADO`.
+Si una clave no puede detectarse con suficiente seguridad, la pregunta queda para revisión manual y no se inventa una respuesta.
 
-## 6. GitHub Pages
+## 6. Publicar contenido
 
-Sube esta carpeta a tu repositorio y activa GitHub Pages desde la rama `main` y carpeta raíz. También se incluye un workflow en `.github/workflows/pages.yml` por si prefieres GitHub Actions.
+Admin → Preguntas → Editar. Revisa enunciado, alternativas, clave, Explicación y Dato clave; clasifica la pregunta y pulsa Publicar.
 
-## Flujo de trabajo recomendado
+## 7. Actualizar el frontend
 
-`PDF/XLSX → previsualización → validación → importación PENDIENTE → revisión admin → PUBLICADA → alumno`
+Reemplaza los archivos publicados por los de esta carpeta. Después usa una recarga completa (`Ctrl+F5` o borrar los datos del sitio) para evitar que quede la caché de v1.5.
 
-Al reimportar el mismo banco, BANQO distingue preguntas nuevas, modificadas y sin cambios. No publica ni archiva automáticamente por diferencias.
+## 8. GitHub Pages
+
+Cuando todo funcione localmente, sube el contenido de esta carpeta al repositorio y publica desde `main` / raíz.
+
+BANQO usa Supabase como backend. No utiliza Google Apps Script, Google Sheets ni una API de IA de pago para generar explicaciones.

@@ -52,6 +52,7 @@ async function finalizeQuestion(q, order, meta){
   q.correct_answer = cleanAnswer(q.correct_answer);
   q.explanation = cleanText(q.explanation);
   q.galactic_tip = cleanText(q.galactic_tip);
+  q.explanation_source = q.explanation_source || (q.explanation ? 'MANUAL' : 'MANUAL');
   q.source_reference = cleanText(q.source_reference) || `${q.bank_name} - Pregunta ${order}`;
   q.source_page = Number(q.source_page) || null;
   q.requires_image = Boolean(q.requires_image);
@@ -60,7 +61,7 @@ async function finalizeQuestion(q, order, meta){
   q.review_notes = cleanText(q.review_notes);
   q.source_uid = cleanText(q.source_uid) || `${q.bank_name}:${order}`;
   q.version = Number(q.version) || 1;
-  q.source_hash = await sha256(JSON.stringify({stem:q.stem,options:q.options,answer:q.correct_answer}));
+  q.source_hash = await sha256(JSON.stringify({stem:q.stem,options:q.options,answer:q.correct_answer,explanation:q.explanation,galactic_tip:q.galactic_tip}));
   q._order = order;
   return q;
 }
@@ -222,8 +223,8 @@ function cleanPdfLines(lines){
 function parseQuestionStart(text){
   let m=String(text).match(/^\s*Pregunta\s*(\d{1,3})(?:\s*\/\s*\d{1,3})?\s*[:.\-)]?\s*(.*)$/i);
   if(m){const n=Number(m[1]);return n>=1?{number:n,first:(m[2]||'').trim()}:null;}
-  // Deliberadamente exige punto + espacio para no confundir 0.5 mg/dL o 3.2 cm con una pregunta.
-  m=String(text).match(/^\s*(\d{1,3})\.\s+(.*)$/);
+  // Exige separador para no confundir 0.5 mg/dL o 3.2 cm con una pregunta.
+  m=String(text).match(/^\s*(?:N[°º]\s*)?(\d{1,3})\s*[.)\-–]\s+(.*)$/i);
   if(m){const n=Number(m[1]);return n>=1?{number:n,first:(m[2]||'').trim()}:null;}
   m=String(text).match(/^\s*(\d{1,3})\.\s*$/);
   if(m){const n=Number(m[1]);return n>=1?{number:n,first:''}:null;}
@@ -231,48 +232,85 @@ function parseQuestionStart(text){
 }
 
 function parseOptionStart(text){
-  const m=String(text).match(/^\s*([A-E])\s*[.)\-:]\s*(.*)$/i);
-  return m?{letter:m[1].toUpperCase(),first:(m[2]||'').trim()}:null;
+  const m=String(text).match(/^\s*(?:\(([A-E])\)|([A-E])\s*[.)\-:])\s*(.*)$/i);
+  return m?{letter:(m[1]||m[2]).toUpperCase(),first:(m[3]||'').trim()}:null;
 }
 
-function greenSignal(ctx,x0,y0,x1,y1){
-  const c=ctx.canvas;
+function greenFeatures(img,x0,y0,x1,y1){
+  const c={width:img.width,height:img.height};
   x0=Math.max(0,Math.floor(x0)); y0=Math.max(0,Math.floor(y0));
   x1=Math.min(c.width,Math.ceil(x1)); y1=Math.min(c.height,Math.ceil(y1));
-  if(x1<=x0 || y1<=y0) return 0;
-  const data=ctx.getImageData(x0,y0,x1-x0,y1-y0).data;
-  let green=0,total=0;
-  // 1 muestra cada 2 píxeles aprox. La condición reconoce tanto texto verde intenso
-  // como el fondo verde claro de los solucionarios que usa BANQO.
-  for(let i=0;i<data.length;i+=8){
-    const r=data[i],g=data[i+1],b=data[i+2];
-    const vivid=g>105 && g-r>18 && g-b>9;
-    const pale=g>205 && g-r>7 && g-b>3;
-    if(vivid||pale) green++;
-    total++;
+  if(x1<=x0 || y1<=y0) return {score:0,ratio:0,coverage:0,vivid:0};
+  const w=x1-x0,h=y1-y0,data=img.data;
+  const step=2,cols=Math.ceil(w/step);let green=0,vivid=0,total=0,covered=0;
+  const colHit=new Uint8Array(cols);
+  for(let y=0;y<h;y+=step){
+    for(let x=0,ci=0;x<w;x+=step,ci++){
+      const i=((y0+y)*img.width+(x0+x))*4,r=data[i],g=data[i+1],b=data[i+2];
+      const max=Math.max(r,g,b),min=Math.min(r,g,b),sat=max?((max-min)/max):0;
+      // Tolerante a: texto verde intenso, resaltado menta/pastel y compresión de capturas/PDF.
+      const strong=g>=85 && g-r>=18 && g-b>=8 && sat>=.12;
+      const medium=g>=125 && g-r>=12 && g-b>=5;
+      const pale=g>=185 && g-r>=6 && g-b>=2 && r>=120 && b>=120;
+      const mint=g>=205 && r>=180 && b>=180 && g>=r+4 && g>=b+2;
+      if(strong||medium||pale||mint){green++;colHit[ci]=1;if(strong||medium)vivid++;}
+      total++;
+    }
   }
-  return total?green/total:0;
+  for(const x of colHit)covered+=x;
+  const ratio=total?green/total:0,coverage=cols?covered/cols:0,vividRatio=total?vivid/total:0;
+  // El fondo verde suele dar gran cobertura horizontal; el texto verde da ratio/vivid alto.
+  const score=ratio*.62+coverage*.30+vividRatio*.08;
+  return {score,ratio,coverage,vivid:vividRatio};
 }
 
-function detectCorrect(optionLines,ctx){
+function median(values){
+  const a=[...values].sort((x,y)=>x-y);if(!a.length)return 0;
+  const m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2;
+}
+
+function detectCorrect(optionLines,pageData,stemLines=[]){
   const ranked=[];
   for(const [letter,lines] of Object.entries(optionLines)){
-    let score=0;
+    let score=0,ratio=0,coverage=0;
     for(const l of lines){
-      const width=Math.max(150,Math.min(360,l.x2-l.x+120));
-      score=Math.max(score,greenSignal(ctx,l.x-12,l.y0-5,l.x+width,l.y1+6));
+      const lineWidth=Math.max(120,l.x2-l.x);
+      const tight=greenFeatures(pageData,l.x-18,l.y0-7,l.x2+36,l.y1+8);
+      const wide=greenFeatures(pageData,l.x-18,l.y0-8,l.x+Math.max(230,Math.min(520,lineWidth+190)),l.y1+9);
+      const f=tight.score>=wide.score?tight:wide;
+      if(f.score>score){score=f.score;ratio=f.ratio;coverage=f.coverage;}
     }
-    ranked.push({letter,score});
+    ranked.push({letter,score,ratio,coverage});
   }
+  const baseline=stemLines.length?median(stemLines.map(l=>greenFeatures(pageData,l.x-18,l.y0-7,l.x2+36,l.y1+8).score)):0;
+  ranked.forEach(r=>{r.rawScore=r.score;r.score=Math.max(0,r.score-baseline);});
   ranked.sort((a,b)=>b.score-a.score);
-  const best=ranked[0]||{letter:null,score:0}, second=ranked[1]?.score||0;
-  const enough=best.score>=.006 && (second<.004 || best.score>=second*1.28 || best.score-second>=.006);
-  const margin=Math.max(0,best.score-second);
-  const confidence=enough?Math.min(1,.45+best.score*2.2+margin*3):Math.min(.49,best.score*2);
-  return {answer:enough?best.letter:null,score:best.score,confidence,scores:ranked};
+  const best=ranked[0]||{letter:null,score:0,ratio:0,coverage:0},second=ranked[1]||{score:0};
+  const margin=Math.max(0,best.score-second.score);
+  // Umbral bajo por diseño: los resaltados muy pálidos ocupan gran ancho pero poca saturación.
+  // Se exige además separación respecto a las otras alternativas para evitar falsos positivos.
+  const med=median(ranked.map(r=>r.score));
+  const mad=median(ranked.map(r=>Math.abs(r.score-med)))||1e-6;
+  const absolute=best.score>=.020 || (best.coverage>=.22 && best.score>=.012) || best.ratio>=.018;
+  const separated=second.score<.008 || best.score>=second.score*1.55 || margin>=.018;
+  const enough=absolute&&separated&&((best.score-med)/mad>=3.5 || margin>=.025);
+  const confidence=enough?Math.min(.995,.52+best.score*1.9+best.coverage*.32+margin*1.8):Math.min(.49,best.score*1.4+best.coverage*.15);
+  return {answer:enough?best.letter:null,score:best.score,confidence,scores:ranked,baseline};
 }
 
-function parseQuestionSegments(lines,ctx,pageNo){
+function cropGapImage(canvas,stemLines,firstOptionLine){
+  if(!stemLines.length||!firstOptionLine)return null;
+  const y0=Math.ceil(Math.max(...stemLines.map(l=>l.y1))+5),y1=Math.floor(firstOptionLine.y0-5);
+  if(y1-y0<36)return null;
+  const x0=Math.max(0,Math.floor(Math.min(...stemLines.map(l=>l.x))-10));
+  const x1=Math.min(canvas.width,Math.ceil(Math.max(...stemLines.map(l=>l.x2),firstOptionLine.x2)+20));
+  if(x1-x0<80)return null;
+  const out=document.createElement('canvas');out.width=x1-x0;out.height=y1-y0;
+  out.getContext('2d').drawImage(canvas,x0,y0,out.width,out.height,0,0,out.width,out.height);
+  return out.toDataURL('image/jpeg',.82);
+}
+
+function parseQuestionSegments(lines,ctx,pageData,pageNo){
   const starts=[];
   lines.forEach((l,i)=>{const q=parseQuestionStart(l.text);if(q)starts.push({i,...q});});
   const out=[];
@@ -284,7 +322,8 @@ function parseQuestionSegments(lines,ctx,pageNo){
     const opts=[];
     seg.forEach((l,i)=>{const op=parseOptionStart(l.text);if(op)opts.push({i,...op});});
     if(opts.length<2) continue;
-    const stem=seg.slice(0,opts[0].i).map(x=>x.text).filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
+    const stemLines=seg.slice(0,opts[0].i);
+    const stem=stemLines.map(x=>x.text).filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
     const options={},optionLines={};
     opts.forEach((op,oi)=>{
       const e=oi+1<opts.length?opts[oi+1].i:seg.length;
@@ -292,8 +331,8 @@ function parseQuestionSegments(lines,ctx,pageNo){
       options[op.letter]=[op.first,...block.slice(1).map(x=>x.text)].filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
       optionLines[op.letter]=block;
     });
-    const key=detectCorrect(optionLines,ctx);
-    out.push({number:st.number,page:pageNo,stem,options,correct_answer:key.answer,_highlightScore:key.score,_keyConfidence:key.confidence});
+    const key=detectCorrect(optionLines,pageData,stemLines);
+    out.push({number:st.number,page:pageNo,stem,options,correct_answer:key.answer,_highlightScore:key.score,_keyConfidence:key.confidence,_keyScores:key.scores,_imageDataUrl:cropGapImage(ctx.canvas,stemLines,seg[opts[0].i])});
   }
   return out;
 }
@@ -339,18 +378,23 @@ export async function parseHighlightedAnswerPdf(file,meta,onProgress=()=>{}){
   const found=[];
   const scale=1.80;
 
-  for(let pno=1;pno<=pdf.numPages;pno++){
+  try{for(let pno=1;pno<=pdf.numPages;pno++){
     onProgress({page:pno,total:pdf.numPages,stage:'Leyendo PDF'});
     const page=await pdf.getPage(pno);
     const viewport=page.getViewport({scale});
     const canvas=document.createElement('canvas');canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
     const ctx=canvas.getContext('2d',{willReadFrequently:true});
     await page.render({canvasContext:ctx,viewport}).promise;
+    const pageData=ctx.getImageData(0,0,canvas.width,canvas.height);
     const content=await page.getTextContent();
     const util=pdfjs.Util;
     let geoms=(content.items||[]).map(it=>textItemGeom(it,viewport,util)).filter(Boolean);
     const charCount=geoms.reduce((a,g)=>a+g.text.trim().length,0);
-    if(charCount<45){
+    let preliminary=[];
+    for(const bounds of getPageColumns(geoms,viewport)) preliminary.push(...cleanPdfLines(groupGeomsToLines(geoms,bounds)));
+    const detectedStarts=preliminary.filter(l=>parseQuestionStart(l.text)).length;
+    const density=charCount/Math.max(1,(viewport.width*viewport.height/10000));
+    if(charCount<45 || (detectedStarts===0 && density<3)){
       try{
         onProgress({page:pno,total:pdf.numPages,stage:'OCR de página escaneada'});
         geoms=await ocrCanvasGeoms(canvas,()=>{});
@@ -360,8 +404,11 @@ export async function parseHighlightedAnswerPdf(file,meta,onProgress=()=>{}){
     }
     for(const bounds of getPageColumns(geoms,viewport)){
       const lines=cleanPdfLines(groupGeomsToLines(geoms,bounds));
-      found.push(...parseQuestionSegments(lines,ctx,pno));
+      found.push(...parseQuestionSegments(lines,ctx,pageData,pno));
     }
+    await new Promise(resolve=>setTimeout(resolve,0));
+  }}finally{
+    if(ocrWorkerPromise){try{const worker=await ocrWorkerPromise;await worker.terminate();}catch{}ocrWorkerPromise=null;}
   }
 
   const uniq=new Map();
@@ -376,12 +423,16 @@ export async function parseHighlightedAnswerPdf(file,meta,onProgress=()=>{}){
   for(const r of sorted){
     const needsImage=/(se\s+adjunta|se\s+muestra|siguiente\s+imagen|imagen\s+(?:adjunta|mostrada|siguiente)|seg[uú]n\s+(?:la\s+)?imagen|observe\s+(?:la\s+)?imagen|figura\s+(?:adjunta|siguiente)|fotograf(?:ía|ia)|radiograf(?:ía|ia)|ecg\s+(?:adjunto|siguiente)|ekg\s+(?:adjunto|siguiente)|estudio\s+de\s+heces.*imagen)/i.test(r.stem);
     const conf=Math.round((r._keyConfidence||0)*100);
+    const top=(r._keyScores||[]).slice(0,2);
+    const reason=!top.length?'sin alternativas medibles':(top[1]&&top[0].score>0&&top[1].score>=top[0].score*.75?`dos alternativas resaltadas (${top[0].letter} y ${top[1].letter})`:'no se detectó resaltado verde');
+    const scoreText=(r._keyScores||[]).map(x=>`${x.letter}:${x.score.toFixed(4)}`).join(', ');
     const q={
       external_id:makeId(meta.prefix,r.number),stem:r.stem,options:r.options,correct_answer:r.correct_answer,
       source_page:r.page,requires_image:needsImage,image_url:null,specialty:meta.specialty||'Sin clasificar',topic:meta.topic||'Sin clasificar',subtopic:meta.subtopic||'Sin clasificar',section:'',explanation:'',galactic_tip:'',
       source_reference:`${meta.bankName||file.name} - Pregunta ${r.number}`,
-      review_notes:`PDF automático · clave ${r.correct_answer?`detectada (${conf}% confianza)`:'NO detectada'}.${needsImage?' Revisar imagen asociada.':''}`,
-      _keyConfidence:r._keyConfidence||0
+      review_notes:`PDF automático · clave ${r.correct_answer?`detectada (${conf}% confianza)`:`NO detectada: ${reason}`}. Puntajes: ${scoreText||'sin datos'}.${needsImage?' Revisar imagen asociada.':''}`,
+      _keyConfidence:r._keyConfidence||0,_keyIssue:r.correct_answer?'ok':(reason.startsWith('dos')?'ambiguous':'missing'),
+      _imageDataUrl:needsImage?r._imageDataUrl:null
     };
     out.push(await finalizeQuestion(q,r.number,meta));
   }
@@ -417,21 +468,24 @@ export async function parseAnswerKeyPdf(file,meta={},onProgress=()=>{}){
 }
 
 export async function mergeAnswerKey(questions,keyMap,keyName='solucionario'){
-  let matched=0;
+  let matched=0,conflicts=0;
+  const numDe=q=>Number(String(q.external_id||'').match(/(\d+)\s*$/)?.[1])||q._order;
   for(const q of questions){
-    const ans=keyMap.get(q._order);
+    const ans=keyMap.get(numDe(q));
     if(!ans) continue;
-    q.correct_answer=ans;matched++;
-    q.review_notes=[q.review_notes,`Clave cruzada con ${keyName}.`].filter(Boolean).join(' ');
-    q.source_hash=await sha256(JSON.stringify({stem:q.stem,options:q.options,answer:q.correct_answer}));
+    if(q.correct_answer&&q.correct_answer!==ans){
+      q.review_notes=[q.review_notes,`CONFLICTO: PDF marcó ${q.correct_answer}, ${keyName} indica ${ans}. Revisar manualmente.`].filter(Boolean).join(' ');
+      q.correct_answer=null;q._conflict=true;conflicts++;
+    }else{q.correct_answer=ans;matched++;q.review_notes=[q.review_notes,`Clave cruzada con ${keyName}.`].filter(Boolean).join(' ');}
+    q.source_hash=await sha256(JSON.stringify({stem:q.stem,options:q.options,answer:q.correct_answer,explanation:q.explanation,galactic_tip:q.galactic_tip}));
   }
-  return {questions,matched,totalKeys:keyMap.size};
+  return {questions,matched,conflicts,totalKeys:keyMap.size,matchRate:questions.length?matched/questions.length:0};
 }
 
 export function validateQuestions(questions){
   const seen=new Set();
   const rows=[];
-  const summary={total:questions.length,valid:0,errors:0,warnings:0,missingAnswer:0,needsImage:0,duplicates:0,lowConfidence:0,missingNumbers:0,missingNumberList:[]};
+  const summary={total:questions.length,valid:0,errors:0,warnings:0,missingAnswer:0,ambiguousGreen:0,keyConflicts:0,needsImage:0,duplicates:0,lowConfidence:0,missingNumbers:0,missingNumberList:[]};
   for(const q of questions){
     const errors=[],warnings=[];
     if(!q.external_id) errors.push('Sin ID');
@@ -439,20 +493,20 @@ export function validateQuestions(questions){
     if(!q.stem||q.stem.length<5) errors.push('Enunciado vacío o demasiado corto');
     const optionKeys=Object.keys(q.options||{}).filter(k=>ALLOWED_ANSWERS.includes(k)&&cleanText(q.options[k]));
     if(optionKeys.length<2) errors.push('Menos de 2 alternativas');
-    if(!q.correct_answer){errors.push('Sin clave detectada');summary.missingAnswer++;}
+    if(!q.correct_answer){errors.push(q._conflict?'Conflicto entre claves':q._keyIssue==='ambiguous'?'Dos alternativas resaltadas':'Sin clave detectada');summary.missingAnswer++;if(q._keyIssue==='ambiguous')summary.ambiguousGreen++;if(q._conflict)summary.keyConflicts++;}
     else if(!optionKeys.includes(q.correct_answer)) errors.push('La clave no existe entre las alternativas');
     if(q._keyConfidence!==undefined && q.correct_answer && q._keyConfidence<.58){warnings.push('Clave con baja confianza: revisar');summary.lowConfidence++;}
     if(q.specialty==='Sin clasificar') warnings.push('Sin clasificación');
-    if(q.requires_image&&!q.image_url){warnings.push('Imagen pendiente');summary.needsImage++;}
+    if(q.requires_image&&!q.image_url&&(!q._imageDataUrl||q._imageUploadFailed)){warnings.push('Imagen pendiente');summary.needsImage++;}
     if(!q.explanation) warnings.push('Sin explicación');
     if(errors.length)summary.errors++;else summary.valid++;
     if(warnings.length)summary.warnings++;
     rows.push({question:q,errors,warnings,ok:errors.length===0});
   }
   const nums=[...new Set(questions.map(q=>Number(q._order)).filter(n=>Number.isInteger(n)&&n>=1&&n<=1000))].sort((a,b)=>a-b);
-  if(nums.length>=2 && nums[0]===1){
-    const set=new Set(nums), max=nums[nums.length-1];
-    const missing=[];for(let n=1;n<=max;n++)if(!set.has(n))missing.push(n);
+  if(nums.length>=2){
+    const set=new Set(nums), min=nums[0],max=nums[nums.length-1];
+    const missing=[];for(let n=min;n<=max;n++)if(!set.has(n))missing.push(n);
     summary.missingNumbers=missing.length;summary.missingNumberList=missing.slice(0,100);
   }
   return {summary,rows};

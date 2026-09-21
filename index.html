@@ -5,33 +5,55 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="description" content="BANQO Perú — banqueo, simulacros y progreso para Residentado Médico, ENAM y EsSalud." />
   <title>BANQO Perú</title>
-  <link rel="stylesheet" href="assets/styles.css" />
+  <link rel="stylesheet" href="assets/styles.css?v=1.6" />
 </head>
 <body>
-  <div id="toast" class="toast"></div>
-  <header id="topbar" class="topbar hide">
-    <button class="brand" data-go="home" aria-label="Ir al inicio">
-      <span class="brand-mark">B</span><span class="brand-text">BANQO</span>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div class="offline-banner" role="status">Sin conexión · lo pendiente se sincronizará al volver Internet</div>
+
+  <aside id="topbar" class="sidebar hide" aria-label="Navegación principal">
+    <button class="brand sidebar-brand" data-go="home" aria-label="Ir al inicio">
+      <span class="brand-mark">✚</span><span class="brand-text">BAN<span>QO</span></span>
     </button>
-    <nav class="topnav">
-      <button data-go="home">Inicio</button>
-      <button data-go="practice">Banquear</button>
-      <button data-go="simulations">Simulacros</button>
-      <button data-go="errors">Mis errores</button>
-      <button data-go="stats">Progreso</button>
-      <button id="adminNav" class="hide" data-go="admin">Admin</button>
+
+    <nav class="topnav sidebar-nav">
+      <button data-go="home"><span class="nav-icon">🏠</span><span>Inicio</span></button>
+      <button data-go="practice"><span class="nav-icon">🧠</span><span>Banqueo</span></button>
+      <button data-go="simulations"><span class="nav-icon">📄</span><span>Simulacros</span></button>
+      <button data-go="errors"><span class="nav-icon">❌</span><span>Mis errores</span></button>
+      <button data-go="stats"><span class="nav-icon">📈</span><span>Progreso</span></button>
+      <button id="adminNav" class="hide" data-go="admin"><span class="nav-icon">🛠️</span><span>Admin</span></button>
+      <button id="profileNavBtn" type="button"><span class="nav-icon">👤</span><span>Perfil</span></button>
     </nav>
-    <div class="top-actions">
-      <div class="streak">🔥 <strong id="streakCount">0</strong></div>
-      <button id="themeBtn" class="icon-btn" title="Cambiar tema">◐</button>
-      <button id="avatarBtn" class="avatar" title="Cuenta">--</button>
+
+    <div class="sidebar-bottom">
+      <div class="sidebar-pet-card">
+        <div class="sidebar-pet">👩‍⚕️</div>
+        <strong id="sidebarName">Qbito</strong>
+        <div class="small" id="sidebarLevel">Nivel 1</div>
+        <div class="sidebar-xp"><span id="sidebarXpBar" style="width:0%"></span></div>
+        <div class="small muted" id="sidebarXp">0/250 XP</div>
+      </div>
+      <div class="sidebar-quick-actions">
+        <button id="themeBtn" class="icon-btn" title="Cambiar tema">◐</button>
+        <button id="avatarBtn" class="avatar" title="Cuenta">--</button>
+      </div>
     </div>
+  </aside>
+  <div id="menuBackdrop" class="menu-backdrop" aria-hidden="true"></div>
+
+  <header id="contentToolbar" class="content-toolbar hide">
+    <button id="mobileMenuBtn" class="mobile-menu-btn" aria-label="Abrir menú">☰</button>
+    <div class="toolbar-spacer"></div>
+    <span id="planPill" class="plan-pill">Free</span>
+    <div class="streak">🔥 <strong id="streakCount">0</strong></div>
+    <button id="quickSignOut" class="toolbar-link">Salir</button>
   </header>
 
   <main id="app"></main>
 
   <footer id="footer" class="footer hide">
-    <span>BANQO · Supabase v1.3</span>
+    <span>BANQO · Supabase v1.6</span>
     <span>Residentado Médico Perú · ENAM · EsSalud</span>
   </footer>
 
@@ -41,10 +63,11 @@
     window.addEventListener('error', function(e){
       var app=document.getElementById('app');
       if(app && !app.innerHTML.trim()){
-        app.innerHTML='<section class="auth-shell"><div class="card auth-card"><div class="auth-logo"><span class="brand-mark">B</span><div><div class="kicker">BANQO PERÚ</div><h2>Error al cargar</h2></div></div><p class="danger-text">'+String(e.message||'No se pudo cargar la aplicación')+'</p><p class="muted small">Haz Ctrl + F5. Si persiste, envía este mensaje de error.</p></div></section>';
+        app.innerHTML='<section class="auth-shell"><div class="auth-split auth-card"><div class="auth-panel"><div class="auth-logo"><span class="brand-mark">✚</span><div><div class="kicker">BANQO PERÚ</div><h2>Error al cargar</h2></div></div><p class="danger-text">'+String(e.message||'No se pudo cargar la aplicación')+'</p><p class="muted small">Haz Ctrl + F5. Si persiste, envía este mensaje de error.</p></div><div class="auth-side"><div class="auth-side-avatar">👩‍⚕️</div><h3>BANQO</h3><p>Tu banco médico, ordenado y sincronizado.</p></div></div></section>';
       }
     });
   </script>
-  <script type="module" src="assets/app.js?v=1.3"></script>
+  <script src="assets/vendor/supabase.min.js?v=2.116.0"></script>
+  <script type="module" src="assets/app.js?v=1.6"></script>
 </body>
 </html>

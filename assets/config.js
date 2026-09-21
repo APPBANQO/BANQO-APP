@@ -1,12 +1,12 @@
 // BANQO Perú · configuración Supabase
 // Puedes reemplazar estos valores directamente y subir el archivo a GitHub Pages.
 // La anon key está diseñada para estar en el frontend; la seguridad real depende de RLS.
-export const DEFAULT_SUPABASE_URL = '';
-export const DEFAULT_SUPABASE_ANON_KEY = '';
+export const DEFAULT_SUPABASE_URL = 'https://jfwcvdnpkthebpvhdvqq.supabase.co';
+export const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_8uZltcl2hf7sd54W19_Pyg_hZIyEWxw';
 
 export const APP_CONFIG = {
   name: 'BANQO',
-  version: '1.0-supabase',
+  version: '1.6-supabase-audit-fix',
   defaultExam: 'RESIDENTADO',
   freeDailyQuestions: 15,
   exams: [

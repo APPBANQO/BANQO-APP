@@ -1,2 +1,2 @@
-BANQO Perú · Supabase v1.3
-Importador PDF mejorado + claves separadas + OCR fallback + eliminar todas las preguntas
+BANQO Perú · Supabase v1.6
+Correcciones integrales de auditoría: seguridad del examen, límites, importación, RLS, UX y accesibilidad.
