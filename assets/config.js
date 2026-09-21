@@ -6,7 +6,7 @@ export const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_8uZltcl2hf7sd54W19_Pyg_
 
 export const APP_CONFIG = {
   name: 'BANQO',
-  version: '1.6-supabase-audit-fix',
+  version: '1.6.1-session-highlights-import-hotfix',
   defaultExam: 'RESIDENTADO',
   freeDailyQuestions: 15,
   exams: [

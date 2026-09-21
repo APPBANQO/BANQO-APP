@@ -580,7 +580,7 @@ async function renderAdmin(){
 async function loadAdminTab(){
   if(!document.getElementById('adminContent')) return;
   if(state.adminTab==='questions')await renderAdminQuestions();
-  else if(state.adminTab==='import')renderAdminImport();
+  else if(state.adminTab==='import')await renderAdminImport();
   else if(state.adminTab==='simulations')await renderAdminSimulations();
   else if(state.adminTab==='reports')await renderAdminReports();
   else if(state.adminTab==='batches')await renderAdminBatches();
@@ -643,8 +643,12 @@ async function deleteAllQuestions(){
   }catch(e){console.error(e);notify(humanError(e),6000)}finally{setBusy(false)}
 }
 
-function renderAdminImport(){
+async function renderAdminImport(){
   const el=document.getElementById('adminContent');if(!el)return;
+  el.innerHTML='<div class="card">Comprobando permisos de importación...</div>';
+  const {data:permission,error:permissionError}=await db().rpc('admin_import_preflight');
+  if(permissionError){el.innerHTML='<div class="notice warning"><strong>Falta aplicar la corrección de permisos.</strong><p>Ejecuta una vez <span class="code">supabase/v1_6_1_hotfix.sql</span> en Supabase → SQL Editor y vuelve a iniciar sesión.</p></div>';return;}
+  if(!permission?.allowed){el.innerHTML=`<div class="notice warning"><strong>Esta cuenta no puede importar.</strong><p>Rol detectado: <span class="code">${esc(permission?.role||'sin perfil')}</span>. La importación está reservada al rol <span class="code">admin</span>.</p></div>`;return;}
   el.innerHTML=`<div class="grid"><div class="card"><div class="section-head" style="margin-top:0"><div><h2>Importar preguntas o simulacros</h2><p class="muted">Reconoce PDFs a 1 o 2 columnas, respuestas marcadas en verde y PDFs escaneados mediante OCR. Después genera Explicación + Dato clave localmente, sin API y sin costo.</p></div></div>
   <div class="form-grid-3"><div class="field"><label>Tipo</label><select id="iBankType"><option value="BANCO">Banco de preguntas</option><option value="SIMULACRO">Simulacro</option></select></div><div class="field"><label>Examen</label><select id="iExam">${APP_CONFIG.exams.map(x=>`<option value="${x.value}">${x.label}</option>`).join('')}</select></div><div class="field"><label>Año</label><input id="iYear" type="number" placeholder="2026" /></div><div class="field"><label>Nombre</label><input id="iName" placeholder="Ej. Banco Histórico - Cardiología" /></div><div class="field"><label>Prefijo ID</label><input id="iPrefix" placeholder="Ej. CARDIO1 o SIM1" /></div><div class="field"><label>Duración (min, solo simulacro)</label><input id="iDuration" type="number" placeholder="Opcional" /></div><div class="field"><label>Especialidad por defecto</label><input id="iSpec" placeholder="Sin clasificar" /></div><div class="field"><label>Tema por defecto</label><input id="iTopic" placeholder="Sin clasificar" /></div><div class="field"><label>Subtema por defecto</label><input id="iSubtopic" placeholder="Sin clasificar" /></div></div>
   <label class="checkbox" style="margin-top:14px"><input id="iAutoExplain" type="checkbox" checked /> Generar automáticamente <strong>Explicación + Dato clave</strong> de forma local y gratuita después de detectar la respuesta correcta.</label>

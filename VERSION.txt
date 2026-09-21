@@ -1,2 +1,2 @@
-BANQO Perú · Supabase v1.6
-Correcciones integrales de auditoría: seguridad del examen, límites, importación, RLS, UX y accesibilidad.
+BANQO Perú · Supabase v1.6.1
+Hotfix: mayor contraste de preguntas respondidas, subrayados temporales por sesión y permisos de importación reforzados.

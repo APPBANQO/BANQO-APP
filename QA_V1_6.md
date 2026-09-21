@@ -1,4 +1,4 @@
-# QA BANQO v1.6
+# QA BANQO v1.6.1
 
 ## Comprobaciones automáticas del paquete
 
@@ -13,6 +13,9 @@
 - Los simulacros requieren el número esperado de preguntas publicadas.
 - Las explicaciones `AUTO_LOCAL` permanecen ocultas al alumno hasta revisión humana.
 - Se validan duplicados, saltos de numeración, conflictos de claves, verdes ambiguos, baja confianza e imágenes pendientes.
+- El sombreado de preguntas respondidas tiene contraste suficiente en tema claro y oscuro.
+- Al crear una sesión se eliminan subrayados residuales de intentos anteriores; al finalizar se eliminan los de la sesión actual.
+- La importación realiza una comprobación de rol y la migración reafirma privilegios REST y RLS para `admin`.
 
 ## Pruebas obligatorias en el proyecto real
 
@@ -28,5 +31,7 @@
 10. Importar PDF de una y dos columnas, PDF escaneado, XLSX/CSV y JSON; revisar los recortes de imagen.
 11. Intentar publicar un simulacro incompleto y luego usar la publicación masiva controlada.
 12. Probar en Chrome, Firefox y Safari/iOS 15 o superior, incluyendo vista móvil.
+13. Subrayar texto, cambiar de pregunta y volver: debe mantenerse durante la sesión. Finalizar e iniciar otra: debe aparecer limpio.
+14. Entrar como `admin`, analizar un archivo de ejemplo e importarlo. Un `moderator` debe seguir sin poder importar.
 
 El importador PDF/OCR y los recortes gráficos siempre requieren revisión editorial: no son un sistema médico infalible.

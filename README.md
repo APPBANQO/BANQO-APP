@@ -1,4 +1,13 @@
-# BANQO Perú · Supabase v1.6 · corrección de auditoría
+# BANQO Perú · Supabase v1.6.1 · corrección de auditoría
+
+## Hotfix v1.6.1
+
+- Las preguntas respondidas tienen un sombreado azul más visible en el navegador lateral.
+- Los subrayados se conservan mientras dura el banco o simulacro, pero se eliminan al finalizar. Una sesión nueva comienza limpia.
+- Se refuerzan los privilegios y políticas RLS necesarios para que el rol `admin` pueda importar.
+- La pestaña Importar comprueba el permiso y muestra una instrucción concreta si falta aplicar la migración.
+
+Si ya aplicaste v1.6, ejecuta una sola vez `supabase/v1_6_1_hotfix.sql` antes de publicar este frontend.
 
 ## Cambios principales de v1.6
 
@@ -99,7 +108,7 @@ Esto crea las tablas, políticas RLS, buckets de Storage y funciones necesarias.
 
 ### Actualizar una instalación existente
 
-Haz una copia de seguridad de la base de datos y ejecuta `supabase/v1_6_audit_fix.sql` una sola vez en SQL Editor. Si tu base aún era v1.3, ejecuta primero `supabase/v1_4_upgrade.sql`. Después reemplaza los archivos del frontend y fuerza una recarga completa del navegador.
+Haz una copia de seguridad de la base de datos. Si ya ejecutaste la migración v1.6, ejecuta ahora solamente `supabase/v1_6_1_hotfix.sql`. Si todavía estabas en v1.5 o anterior, ejecuta `supabase/v1_6_audit_fix.sql`, que ya incorpora el hotfix. Si tu base era v1.3, ejecuta primero `supabase/v1_4_upgrade.sql`. Después reemplaza los archivos del frontend y fuerza una recarga completa del navegador.
 
 ## 2. Crear tu usuario administrador
 

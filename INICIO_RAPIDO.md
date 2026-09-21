@@ -1,4 +1,4 @@
-# BANQO Perú v1.6 — inicio rápido
+# BANQO Perú v1.6.1 — inicio rápido
 
 ## 1. Base de datos Supabase
 
@@ -7,6 +7,9 @@ Ejecuta una sola vez `supabase/schema.sql`.
 
 ### Si ya usabas BANQO Supabase v1.4 o v1.5
 Haz una copia de seguridad y ejecuta una sola vez `supabase/v1_6_audit_fix.sql` en Supabase → SQL Editor. No borra preguntas, usuarios ni progreso.
+
+### Si ya instalaste BANQO v1.6
+Ejecuta solamente `supabase/v1_6_1_hotfix.sql` una vez. Este script corrige los permisos de importación y hace que los subrayados sean temporales por sesión.
 
 ### Si aún estabas en v1.3
 Ejecuta primero `supabase/v1_4_upgrade.sql` y después `supabase/v1_6_audit_fix.sql`.
@@ -68,7 +71,7 @@ Admin → Preguntas → Editar. Revisa enunciado, alternativas, clave, Explicaci
 
 ## 7. Actualizar el frontend
 
-Reemplaza los archivos publicados por los de esta carpeta. Después usa una recarga completa (`Ctrl+F5` o borrar los datos del sitio) para evitar que quede la caché de v1.5.
+Reemplaza los archivos publicados por los de esta carpeta. Después usa una recarga completa (`Ctrl+F5` o borrar los datos del sitio) para evitar que quede la caché anterior.
 
 ## 8. GitHub Pages
 
